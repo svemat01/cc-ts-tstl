@@ -11,7 +11,7 @@ export const transformBreakStatement: FunctionVisitor<ts.BreakStatement> = (brea
 };
 
 export const transformContinueStatement: FunctionVisitor<ts.ContinueStatement> = (statement, context) => {
-    if (context.luaTarget === LuaTarget.Universal || context.luaTarget === LuaTarget.Lua51) {
+    if (context.luaTarget === LuaTarget.Universal || context.luaTarget === LuaTarget.Lua51 || context.luaTarget == LuaTarget.Cobalt) {
         context.diagnostics.push(unsupportedForTarget(statement, "Continue statement", LuaTarget.Lua51));
     }
 

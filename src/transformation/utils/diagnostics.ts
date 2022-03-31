@@ -84,7 +84,7 @@ export const unsupportedRightShiftOperator = createErrorDiagnosticFactory(
     "Right shift operator is not supported for target Lua 5.3. Use `>>>` instead."
 );
 
-const getLuaTargetName = (version: LuaTarget) => (version === LuaTarget.LuaJIT ? "LuaJIT" : `Lua ${version}`);
+const getLuaTargetName = (version: LuaTarget) => (version === LuaTarget.LuaJIT ? "LuaJIT" : (version === LuaTarget.Cobalt ? "Cobalt" : `Lua ${version}`));
 export const unsupportedForTarget = createErrorDiagnosticFactory(
     (functionality: string, version: Exclude<LuaTarget, LuaTarget.Universal>) =>
         `${functionality} is/are not supported for target ${getLuaTargetName(version)}.`

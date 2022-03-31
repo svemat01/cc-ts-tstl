@@ -31,8 +31,8 @@ function getLuaBindingsForVersion(target: tstl.LuaTarget): { lauxlib: LauxLib; l
         const { lauxlib, lua, lualib } = require("lua-wasm-bindings/dist/lua.53");
         return { lauxlib, lua, lualib };
     }
-    if (target === tstl.LuaTarget.LuaJIT) {
-        throw Error("Can't use executeLua() or expectToMatchJsResult() wit LuaJIT as target!");
+    if (target === tstl.LuaTarget.LuaJIT || target === tstl.LuaTarget.Cobalt) {
+        throw Error("Can't use executeLua() or expectToMatchJsResult() wit LuaJIT or Cobalt as target!");
     }
 
     const { lauxlib, lua, lualib } = require("lua-wasm-bindings/dist/lua.54");
@@ -75,6 +75,7 @@ export function expectEachVersionExceptJit<T>(
         [tstl.LuaTarget.Lua53]: expectation,
         [tstl.LuaTarget.Lua54]: expectation,
         [tstl.LuaTarget.LuaJIT]: false, // Exclude JIT
+        [tstl.LuaTarget.Cobalt]: false, // Exclude CC
     };
 }
 
