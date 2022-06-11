@@ -2,9 +2,9 @@ import * as ts from "typescript";
 import * as lua from "../../LuaAST";
 import { TransformationContext } from "../context";
 import { unsupportedProperty } from "../utils/diagnostics";
-import { addToNumericExpression, createNaN, getNumberLiteralValue } from "../utils/lua-ast";
+import { addToNumericExpression, createNaN, getNumberLiteralValue, wrapInTable } from "../utils/lua-ast";
 import { LuaLibFeature, transformLuaLibFunction } from "../utils/lualib";
-import { PropertyCallExpression, transformArguments, transformCallAndArguments } from "../visitors/call";
+import { transformArguments, transformCallAndArguments } from "../visitors/call";
 
 function createStringCall(methodName: string, tsOriginal: ts.Node, ...params: lua.Expression[]): lua.CallExpression {
     const stringIdentifier = lua.createIdentifier("string");
@@ -17,20 +17,24 @@ function createStringCall(methodName: string, tsOriginal: ts.Node, ...params: lu
 
 export function transformStringPrototypeCall(
     context: TransformationContext,
-    node: PropertyCallExpression
+    node: ts.CallExpression,
+    calledMethod: ts.PropertyAccessExpression
 ): lua.Expression | undefined {
-    const expression = node.expression;
     const signature = context.checker.getResolvedSignature(node);
-    const [caller, params] = transformCallAndArguments(context, expression.expression, node.arguments, signature);
+    const [caller, params] = transformCallAndArguments(context, calledMethod.expression, node.arguments, signature);
 
-    const expressionName = expression.name.text;
+    const expressionName = calledMethod.name.text;
     switch (expressionName) {
         case "replace":
             return transformLuaLibFunction(context, LuaLibFeature.StringReplace, node, caller, ...params);
         case "replaceAll":
             return transformLuaLibFunction(context, LuaLibFeature.StringReplaceAll, node, caller, ...params);
         case "concat":
-            return transformLuaLibFunction(context, LuaLibFeature.StringConcat, node, caller, ...params);
+            return lua.createCallExpression(
+                lua.createTableIndexExpression(lua.createIdentifier("table"), lua.createStringLiteral("concat")),
+                [wrapInTable(caller, ...params)],
+                node
+            );
 
         case "indexOf": {
             const stringExpression = createStringCall(
@@ -142,19 +146,19 @@ export function transformStringPrototypeCall(
         case "padEnd":
             return transformLuaLibFunction(context, LuaLibFeature.StringPadEnd, node, caller, ...params);
         default:
-            context.diagnostics.push(unsupportedProperty(expression.name, "string", expressionName));
+            context.diagnostics.push(unsupportedProperty(calledMethod.name, "string", expressionName));
     }
 }
 
 export function transformStringConstructorCall(
     context: TransformationContext,
-    node: PropertyCallExpression
+    node: ts.CallExpression,
+    calledMethod: ts.PropertyAccessExpression
 ): lua.Expression | undefined {
-    const expression = node.expression;
     const signature = context.checker.getResolvedSignature(node);
     const params = transformArguments(context, node.arguments, signature);
 
-    const expressionName = expression.name.text;
+    const expressionName = calledMethod.name.text;
     switch (expressionName) {
         case "fromCharCode":
             return lua.createCallExpression(
@@ -164,7 +168,7 @@ export function transformStringConstructorCall(
             );
 
         default:
-            context.diagnostics.push(unsupportedProperty(expression.name, "String", expressionName));
+            context.diagnostics.push(unsupportedProperty(calledMethod.name, "String", expressionName));
     }
 }
 

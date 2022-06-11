@@ -59,6 +59,12 @@ export const optionDeclarations: CommandLineOption[] = [
         choices: Object.values(LuaTarget),
     },
     {
+        name: "noImplicitGlobalVariables",
+        description:
+            'Specify to prevent implicitly turning "normal" variants into global variables in the transpiled output.',
+        type: "boolean",
+    },
+    {
         name: "noImplicitSelf",
         description: 'If "this" is implicitly considered an any type, do not generate a self parameter.',
         type: "boolean",
@@ -87,6 +93,11 @@ export const optionDeclarations: CommandLineOption[] = [
         name: "noResolvePaths",
         description: "An array of paths that tstl should not resolve and keep as-is.",
         type: "array",
+    },
+    {
+        name: "lua51AllowTryCatchInAsyncAwait",
+        description: "Always allow try/catch in async/await functions for Lua 5.1.",
+        type: "boolean",
     },
 ];
 
