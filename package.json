@@ -1,6 +1,6 @@
 {
     "name": "@jackmacwindows/typescript-to-lua",
-    "version": "1.5.0",
+    "version": "1.6.0",
     "description": "A generic TypeScript to Lua transpiler. Write your code in TypeScript and publish Lua! (With ComputerCraft support)",
     "repository": "https://github.com/MCJack123/TypeScriptToLua",
     "homepage": "https://typescripttolua.github.io/",
@@ -65,7 +65,7 @@
         "javascript-stringify": "^2.0.1",
         "jest": "^27.3.0",
         "jest-circus": "^27.3.0",
-        "@jackmacwindows/lua-types": "2.10.1",
+        "@jackmacwindows/lua-types": "^2.11.0",
         "lua-wasm-bindings": "^0.2.2",
         "prettier": "^2.3.2",
         "ts-jest": "^27.1.3",

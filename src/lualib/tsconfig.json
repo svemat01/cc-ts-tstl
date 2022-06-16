@@ -3,7 +3,7 @@
         "outDir": "../../dist/lualib",
         "target": "esnext",
         "lib": ["esnext"],
-        "types": ["lua-types/5.4"],
+        "types": ["@jackmacwindows/lua-types/cc"],
         "skipLibCheck": true,
 
         "noUnusedLocals": true,
