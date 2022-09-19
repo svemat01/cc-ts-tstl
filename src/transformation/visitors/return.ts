@@ -23,16 +23,20 @@ function transformExpressionsInReturn(
 ): lua.Expression[] {
     const expressionType = context.checker.getTypeAtLocation(node);
 
-    if (ts.isCallExpression(node)) {
+    // skip type assertions
+    // don't skip parenthesis as it may arise confusion with lua behavior (where parenthesis are significant)
+    const innerNode = ts.skipOuterExpressions(node, ts.OuterExpressionKinds.Assertions);
+
+    if (ts.isCallExpression(innerNode)) {
         // $multi(...)
-        if (isMultiFunctionCall(context, node)) {
+        if (isMultiFunctionCall(context, innerNode)) {
             // Don't allow $multi to be implicitly cast to something other than LuaMultiReturn
             const type = context.checker.getContextualType(node);
             if (type && !canBeMultiReturnType(type)) {
-                context.diagnostics.push(invalidMultiFunctionReturnType(node));
+                context.diagnostics.push(invalidMultiFunctionReturnType(innerNode));
             }
 
-            let returnValues = transformArguments(context, node.arguments);
+            let returnValues = transformArguments(context, innerNode.arguments);
             if (insideTryCatch) {
                 returnValues = [wrapInTable(...returnValues)]; // Wrap results when returning inside try/catch
             }
@@ -40,12 +44,16 @@ function transformExpressionsInReturn(
         }
 
         // Force-wrap LuaMultiReturn when returning inside try/catch
-        if (insideTryCatch && returnsMultiType(context, node) && !shouldMultiReturnCallBeWrapped(context, node)) {
+        if (
+            insideTryCatch &&
+            returnsMultiType(context, innerNode) &&
+            !shouldMultiReturnCallBeWrapped(context, innerNode)
+        ) {
             return [wrapInTable(context.transformExpression(node))];
         }
-    } else if (isInMultiReturnFunction(context, node) && isMultiReturnType(expressionType)) {
+    } else if (isInMultiReturnFunction(context, innerNode) && isMultiReturnType(expressionType)) {
         // Unpack objects typed as LuaMultiReturn
-        return [createUnpackCall(context, context.transformExpression(node), node)];
+        return [createUnpackCall(context, context.transformExpression(innerNode), innerNode)];
     }
 
     return [context.transformExpression(node)];
@@ -83,8 +91,6 @@ export function createReturnStatement(
     values: lua.Expression[],
     node: ts.Node
 ): lua.ReturnStatement {
-    const results = [...values];
-
     if (isInAsyncFunction(node)) {
         return lua.createReturnStatement([
             lua.createCallExpression(lua.createIdentifier("____awaiter_resolve"), [lua.createNilLiteral(), ...values]),
@@ -93,10 +99,10 @@ export function createReturnStatement(
 
     if (isInTryCatch(context)) {
         // Bubble up explicit return flag and check if we're inside a try/catch block
-        results.unshift(lua.createBooleanLiteral(true));
+        values = [lua.createBooleanLiteral(true), ...values];
     }
 
-    return lua.createReturnStatement(results, node);
+    return lua.createReturnStatement(values, node);
 }
 
 function isInTryCatch(context: TransformationContext): boolean {

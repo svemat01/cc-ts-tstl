@@ -2,19 +2,14 @@ import * as ts from "typescript";
 import * as lua from "../../LuaAST";
 import { assertNever } from "../../utils";
 import { FunctionVisitor, TransformationContext, Visitors } from "../context";
-import {
-    invalidMultiFunctionUse,
-    undefinedInArrayLiteral,
-    unsupportedAccessorInObjectLiteral,
-} from "../utils/diagnostics";
-import { createExportedIdentifier, getSymbolExportScope } from "../utils/export";
+import { undefinedInArrayLiteral, unsupportedAccessorInObjectLiteral } from "../utils/diagnostics";
 import { LuaLibFeature, transformLuaLibFunction } from "../utils/lualib";
-import { createSafeName, hasUnsafeIdentifierName, hasUnsafeSymbolName } from "../utils/safe-names";
-import { getSymbolIdOfSymbol, trackSymbolReference } from "../utils/symbols";
+import { trackSymbolReference } from "../utils/symbols";
 import { isArrayType } from "../utils/typescript";
 import { transformFunctionLikeDeclaration } from "./function";
 import { moveToPrecedingTemp, transformExpressionList } from "./expression-list";
-import { findMultiAssignmentViolations } from "./language-extensions/multi";
+import { transformIdentifierWithSymbol } from "./identifier";
+import { LuaTarget } from "../../CompilerOptions";
 
 // TODO: Move to object-literal.ts?
 export function transformPropertyName(context: TransformationContext, node: ts.PropertyName): lua.Expression {
@@ -34,45 +29,26 @@ export function createShorthandIdentifier(
     valueSymbol: ts.Symbol | undefined,
     propertyIdentifier: ts.Identifier
 ): lua.Expression {
-    const propertyName = propertyIdentifier.text;
-
-    const isUnsafeName = valueSymbol
-        ? hasUnsafeSymbolName(context, valueSymbol, propertyIdentifier)
-        : hasUnsafeIdentifierName(context, propertyIdentifier, false);
-
-    const name = isUnsafeName ? createSafeName(propertyName) : propertyName;
-
-    let identifier = context.transformExpression(ts.factory.createIdentifier(name));
-    lua.setNodeOriginal(identifier, propertyIdentifier);
-    if (valueSymbol !== undefined && lua.isIdentifier(identifier)) {
-        identifier.symbolId = getSymbolIdOfSymbol(context, valueSymbol);
-
-        const exportScope = getSymbolExportScope(context, valueSymbol);
-        if (exportScope) {
-            identifier = createExportedIdentifier(context, identifier, exportScope);
-        }
-    }
-
-    return identifier;
+    return transformIdentifierWithSymbol(context, propertyIdentifier, valueSymbol);
 }
 
-const transformNumericLiteralExpression: FunctionVisitor<ts.NumericLiteral> = expression => {
+const transformNumericLiteralExpression: FunctionVisitor<ts.NumericLiteral> = (expression, context) => {
     if (expression.text === "Infinity") {
-        const math = lua.createIdentifier("math");
-        const huge = lua.createStringLiteral("huge");
-        return lua.createTableIndexExpression(math, huge, expression);
+        if (context.luaTarget === LuaTarget.Lua50) {
+            const one = lua.createNumericLiteral(1);
+            const zero = lua.createNumericLiteral(0);
+            return lua.createBinaryExpression(one, zero, lua.SyntaxKind.DivisionOperator);
+        } else {
+            const math = lua.createIdentifier("math");
+            const huge = lua.createStringLiteral("huge");
+            return lua.createTableIndexExpression(math, huge, expression);
+        }
     }
 
     return lua.createNumericLiteral(Number(expression.text), expression);
 };
 
 const transformObjectLiteralExpression: FunctionVisitor<ts.ObjectLiteralExpression> = (expression, context) => {
-    const violations = findMultiAssignmentViolations(context, expression);
-    if (violations.length > 0) {
-        context.diagnostics.push(...violations.map(e => invalidMultiFunctionUse(e)));
-        return lua.createNilLiteral(expression);
-    }
-
     const properties: lua.Expression[] = [];
     const initializers: ts.Node[] = [];
     const keyPrecedingStatements: lua.Statement[][] = [];

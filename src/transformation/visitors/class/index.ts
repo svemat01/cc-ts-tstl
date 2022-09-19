@@ -1,9 +1,6 @@
 import * as ts from "typescript";
 import * as lua from "../../../LuaAST";
-import { getOrUpdate } from "../../../utils";
 import { FunctionVisitor, TransformationContext } from "../../context";
-import { AnnotationKind, getTypeAnnotations } from "../../utils/annotations";
-import { annotationRemoved } from "../../utils/diagnostics";
 import {
     createDefaultExportExpression,
     createExportedIdentifier,
@@ -25,6 +22,7 @@ import {
 import { createMethodDecoratingExpression, transformMethodDeclaration } from "./members/method";
 import { getExtendedNode, getExtendedType, isStaticNode } from "./utils";
 import { createClassSetup } from "./setup";
+import { LuaTarget } from "../../../CompilerOptions";
 
 export const transformClassDeclaration: FunctionVisitor<ts.ClassLikeDeclaration> = (declaration, context) => {
     // If declaration is a default export, transform to export variable assignment instead
@@ -49,8 +47,8 @@ export function transformClassAsExpression(
     return name;
 }
 
-const classSuperInfos = new WeakMap<TransformationContext, ClassSuperInfo[]>();
-interface ClassSuperInfo {
+/** @internal */
+export interface ClassSuperInfo {
     className: lua.Identifier;
     extendedTypeNode?: ts.ExpressionWithTypeArguments;
 }
@@ -69,21 +67,11 @@ function transformClassLikeDeclaration(
         className = lua.createIdentifier(context.createTempName("class"), classDeclaration);
     }
 
-    const annotations = getTypeAnnotations(context.checker.getTypeAtLocation(classDeclaration));
-
-    if (annotations.has(AnnotationKind.Extension)) {
-        context.diagnostics.push(annotationRemoved(classDeclaration, AnnotationKind.Extension));
-    }
-    if (annotations.has(AnnotationKind.MetaExtension)) {
-        context.diagnostics.push(annotationRemoved(classDeclaration, AnnotationKind.MetaExtension));
-    }
-
     // Get type that is extended
-    const extendedTypeNode = getExtendedNode(context, classDeclaration);
+    const extendedTypeNode = getExtendedNode(classDeclaration);
     const extendedType = getExtendedType(context, classDeclaration);
 
-    const superInfo = getOrUpdate(classSuperInfos, context, () => []);
-    superInfo.push({ className, extendedTypeNode });
+    context.classSuperInfos.push({ className, extendedTypeNode });
 
     // Get all properties with value
     const properties = classDeclaration.members.filter(ts.isPropertyDeclaration).filter(member => member.initializer);
@@ -138,16 +126,20 @@ function transformClassLikeDeclaration(
     } else if (instanceFields.length > 0) {
         // Generate a constructor if none was defined in a class with instance fields that need initialization
         // localClassName.prototype.____constructor = function(self, ...)
-        //     baseClassName.prototype.____constructor(self, ...)
+        //     baseClassName.prototype.____constructor(self, ...)  // or unpack(arg) for Lua 5.0
         //     ...
         const constructorBody = transformClassInstanceFields(context, instanceFields);
+        const argsExpression =
+            context.luaTarget === LuaTarget.Lua50
+                ? lua.createCallExpression(lua.createIdentifier("unpack"), [lua.createArgLiteral()])
+                : lua.createDotsLiteral();
         const superCall = lua.createExpressionStatement(
             lua.createCallExpression(
                 lua.createTableIndexExpression(
                     context.transformExpression(ts.factory.createSuper()),
                     lua.createStringLiteral("____constructor")
                 ),
-                [createSelfIdentifier(), lua.createDotsLiteral()]
+                [createSelfIdentifier(), argsExpression]
             )
         );
         constructorBody.unshift(superCall);
@@ -200,11 +192,11 @@ function transformClassLikeDeclaration(
     result.push(...decorationStatements);
 
     // Decorate the class
-    if (classDeclaration.decorators) {
+    if (ts.canHaveDecorators(classDeclaration) && ts.getDecorators(classDeclaration)) {
         const decoratingExpression = createDecoratingExpression(
             context,
             classDeclaration.kind,
-            classDeclaration.decorators.map(d => transformDecoratorExpression(context, d)),
+            ts.getDecorators(classDeclaration)?.map(d => transformDecoratorExpression(context, d)) ?? [],
             localClassName
         );
         const decoratingStatement = lua.createAssignmentStatement(localClassName, decoratingExpression);
@@ -220,13 +212,13 @@ function transformClassLikeDeclaration(
         }
     }
 
-    superInfo.pop();
+    context.classSuperInfos.pop();
 
     return { statements: result, name: className };
 }
 
 export const transformSuperExpression: FunctionVisitor<ts.SuperExpression> = (expression, context) => {
-    const superInfos = getOrUpdate(classSuperInfos, context, () => []);
+    const superInfos = context.classSuperInfos;
     const superInfo = superInfos[superInfos.length - 1];
     if (!superInfo) return lua.createAnonymousIdentifier(expression);
     const { className, extendedTypeNode } = superInfo;

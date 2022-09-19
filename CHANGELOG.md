@@ -1,5 +1,43 @@
 # Changelog
 
+## 1.10.0
+
+- **[Breaking]** Upgraded TypeScript to 4.8.
+- **[Breaking]** Changed how language-extensions are distributed, you should now put `"types": ["@typescript-to-lua/language-extensions"]` in your tsconfig.json (instead of "typescript-to-lua/...").
+- Added support for **Lua 5.0**, thanks for the effort @YoRyan!
+- Added support for TypeScript 4.7 [instantiation expressions](https://www.typescriptlang.org/docs/handbook/release-notes/typescript-4-7.html#instantiation-expressions).
+- Fixed a bug causing some `require` uses not being recognized my module resolution, leading to missing files in the output.
+
+## 1.9.0
+
+- Added a warning when trying to use a type in a condition that can never be false in Lua, such as numbers or strings. (Only when `strictNullChecks` is enabled.)
+- Fixed some missing and misplaced errors when trying to reference LuaTable/LuaMap/LuaSet functions without calling them.
+- Fixed a bug in the `get()` type of `ReadOnlyLuaMap`. It is now typed the same as `LuaMap`, i.e. it can return `undefined`.
+- Fixed an issue in bundling that could sometimes lead to invalid bundle entry requires.
+- Added a warning when using `paths` without specifying `baseUrl`.
+- Fixed exception while checking for standard library types.
+
+## 1.8.0
+
+- Added support for the [tsconfig.json paths](https://www.typescriptlang.org/tsconfig#paths) configuration option.
+- Fixed spreading lua iterables & iterators translating to incorrect lua.
+  - You can now write things like `[...pairs(obj)]`.
+- Fixed a bug in module resolution resolving the wrong lua files when having the same file names in nested directories.
+- Fixed a bug causing temporary variables for nested destructuring in loop variables to be outside the loop, instead of inside.
+- Fixed import expressions not actually requiring their import.
+- Fixed `super` calls not being source-mapped correctly.
+
+## 1.7.0
+
+- Added support for `LuaMap` and `LuaSet` language extensions that translate to very low level Lua table operations. See [our docs](https://typescripttolua.github.io/docs/advanced/language-extensions/#luamap-and-luaset) for more information.
+- Big performance improvements, speeding up TSTL translation by 2-3x. Thanks @GlassBricks!
+- Reduced the use of temorary variables.
+- Moved tsconfig-schema into main TypeScriptToLua repository.
+- Added support for array options in tstl CLI.
+- Fixed bug where promise `then` was not correctly forwarding the result value to chained promises.
+- Fixed a bug causing false positive errors from jsdoc documentation comments.
+- Fixed various calling context bugs.
+
 ## 1.6.0
 
 - **[Breaking]** Upgraded TypeScript to 4.7

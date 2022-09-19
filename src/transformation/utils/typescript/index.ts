@@ -39,7 +39,7 @@ export function getFirstDeclarationInFile(symbol: ts.Symbol, sourceFile: ts.Sour
     return declarations.length > 0 ? declarations.reduce((p, c) => (p.pos < c.pos ? p : c)) : undefined;
 }
 
-function isStandardLibraryDeclaration(context: TransformationContext, declaration: ts.Declaration): boolean {
+export function isStandardLibraryDeclaration(context: TransformationContext, declaration: ts.Declaration): boolean {
     const parseTreeNode = ts.getParseTreeNode(declaration) ?? declaration;
     const sourceFile = parseTreeNode.getSourceFile();
     if (!sourceFile) {
@@ -91,7 +91,7 @@ export function isExpressionWithEvaluationEffect(node: ts.Expression): boolean {
 
 export function getFunctionTypeForCall(context: TransformationContext, node: ts.CallExpression) {
     const signature = context.checker.getResolvedSignature(node);
-    if (!signature || !signature.declaration) {
+    if (!signature?.declaration) {
         return;
     }
     const typeDeclaration = findFirstNodeAbove(signature.declaration, ts.isTypeAliasDeclaration);
@@ -110,7 +110,7 @@ export function isConstIdentifier(context: TransformationContext, node: ts.Node)
         return false;
     }
     const symbol = context.checker.getSymbolAtLocation(identifier);
-    if (!symbol || !symbol.declarations) {
+    if (!symbol?.declarations) {
         return false;
     }
     return symbol.declarations.some(

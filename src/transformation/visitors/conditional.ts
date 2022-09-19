@@ -2,9 +2,10 @@ import * as ts from "typescript";
 import * as lua from "../../LuaAST";
 import { FunctionVisitor, TransformationContext } from "../context";
 import { transformInPrecedingStatementScope } from "../utils/preceding-statements";
-import { performHoisting, popScope, pushScope, ScopeType } from "../utils/scope";
+import { performHoisting, ScopeType } from "../utils/scope";
 import { transformBlockOrStatement } from "./block";
 import { canBeFalsy } from "../utils/typescript";
+import { truthyOnlyConditionalValue } from "../utils/diagnostics";
 
 type EvaluatedExpression = [precedingStatemens: lua.Statement[], value: lua.Expression];
 
@@ -39,6 +40,9 @@ function transformProtectedConditionalExpression(
 }
 
 export const transformConditionalExpression: FunctionVisitor<ts.ConditionalExpression> = (expression, context) => {
+    // Check if we need to add diagnostic about Lua truthiness
+    checkOnlyTruthyCondition(expression.condition, context);
+
     const condition = transformInPrecedingStatementScope(context, () =>
         context.transformExpression(expression.condition)
     );
@@ -63,10 +67,14 @@ export const transformConditionalExpression: FunctionVisitor<ts.ConditionalExpre
 };
 
 export function transformIfStatement(statement: ts.IfStatement, context: TransformationContext): lua.IfStatement {
-    pushScope(context, ScopeType.Conditional);
+    context.pushScope(ScopeType.Conditional);
+
+    // Check if we need to add diagnostic about Lua truthiness
+    checkOnlyTruthyCondition(statement.expression, context);
+
     const condition = context.transformExpression(statement.expression);
     const statements = performHoisting(context, transformBlockOrStatement(context, statement.thenStatement));
-    popScope(context);
+    context.popScope();
     const ifBlock = lua.createBlock(statements);
 
     if (statement.elseStatement) {
@@ -90,16 +98,25 @@ export function transformIfStatement(statement: ts.IfStatement, context: Transfo
                 return lua.createIfStatement(condition, ifBlock, elseStatement);
             }
         } else {
-            pushScope(context, ScopeType.Conditional);
+            context.pushScope(ScopeType.Conditional);
             const elseStatements = performHoisting(
                 context,
                 transformBlockOrStatement(context, statement.elseStatement)
             );
-            popScope(context);
+            context.popScope();
             const elseBlock = lua.createBlock(elseStatements);
             return lua.createIfStatement(condition, ifBlock, elseBlock);
         }
     }
 
     return lua.createIfStatement(condition, ifBlock);
+}
+
+export function checkOnlyTruthyCondition(condition: ts.Expression, context: TransformationContext) {
+    if (context.options.strictNullChecks === false) return; // This check is not valid if everything could implicitly be nil
+    if (ts.isElementAccessExpression(condition)) return; // Array index could always implicitly return nil
+
+    if (!canBeFalsy(context, context.checker.getTypeAtLocation(condition))) {
+        context.diagnostics.push(truthyOnlyConditionalValue(condition));
+    }
 }

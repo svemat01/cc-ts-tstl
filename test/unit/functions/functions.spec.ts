@@ -1,3 +1,4 @@
+import * as ts from "typescript";
 import * as tstl from "../../../src";
 import * as util from "../../util";
 import { unsupportedForTarget } from "../../../src/transformation/utils/diagnostics";
@@ -159,24 +160,31 @@ test("Class static dot method with parameter", () => {
     `.expectToMatchJsResult();
 });
 
-test("Function bind", () => {
+const functionTypeDeclarations = [
+    ["arrow", ": (...args: any) => any"],
+    ["call signature", ": { (...args: any): any; }"],
+    ["generic", ": Function"],
+    ["inferred", ""],
+];
+
+test.each(functionTypeDeclarations)("Function bind (%s)", (_, type) => {
     util.testFunction`
-        const abc = function (this: { a: number }, a: string, b: string) { return this.a + a + b; }
+        const abc${type} = function (this: { a: number }, a: string, b: string) { return this.a + a + b; }
         return abc.bind({ a: 4 }, "b")("c");
     `.expectToMatchJsResult();
 });
 
-test("Function apply", () => {
+test.each(functionTypeDeclarations)("Function apply (%s)", (_, type) => {
     util.testFunction`
-        const abc = function (this: { a: number }, a: string) { return this.a + a; }
+        const abc${type} = function (this: { a: number }, a: string) { return this.a + a; }
         return abc.apply({ a: 4 }, ["b"]);
     `.expectToMatchJsResult();
 });
 
 // Fix #1226: https://github.com/TypeScriptToLua/TypeScriptToLua/issues/1226
-test("function apply without arguments should not lead to exception", () => {
+test.each(functionTypeDeclarations)("function apply without arguments should not lead to exception (%s)", (_, type) => {
     util.testFunction`
-        const f = function (this: number) { return this + 3; }
+        const f${type} = function (this: number) { return this + 3; }
         return f.apply(4);
     `.expectToMatchJsResult();
 });
@@ -193,9 +201,9 @@ test.each(["() => 4", "undefined"])("prototype call on nullable function (%p)", 
         .expectToMatchJsResult();
 });
 
-test("Function call", () => {
+test.each(functionTypeDeclarations)("Function call (%s)", (_, type) => {
     util.testFunction`
-        const abc = function (this: { a: number }, a: string) { return this.a + a; }
+        const abc${type} = function (this: { a: number }, a: string) { return this.a + a; }
         return abc.call({ a: 4 }, "b");
     `.expectToMatchJsResult();
 });
@@ -216,14 +224,17 @@ test.each([
     `.expectToMatchJsResult();
 });
 
-test.each([tstl.LuaTarget.Lua51, tstl.LuaTarget.Universal])("function.length unsupported (%p)", luaTarget => {
-    util.testFunction`
-        function fn() {}
-        return fn.length;
-    `
-        .setOptions({ luaTarget })
-        .expectDiagnosticsToMatchSnapshot([unsupportedForTarget.code]);
-});
+test.each([tstl.LuaTarget.Lua50, tstl.LuaTarget.Lua51, tstl.LuaTarget.Universal])(
+    "function.length unsupported (%p)",
+    luaTarget => {
+        util.testFunction`
+            function fn() {}
+            return fn.length;
+        `
+            .setOptions({ luaTarget })
+            .expectDiagnosticsToMatchSnapshot([unsupportedForTarget.code]);
+    }
+);
 
 test("Recursive function definition", () => {
     util.testFunction`
@@ -504,4 +515,16 @@ test("top-level function declaration is global", () => {
     `
         .addExtraFile("a.ts", 'function foo() { return "foo" }')
         .expectToEqual({ result: "foo" });
+});
+
+// https://github.com/TypeScriptToLua/TypeScriptToLua/issues/1325
+test("call expression should not throw (#1325)", () => {
+    util.testModule`
+        function test<T>(iterator:Iterator<T>) {
+            iterator.return?.();
+        }
+    `
+        // Note: does not reproduce without strict=true
+        .setOptions({ target: ts.ScriptTarget.ESNext, strict: true })
+        .expectToHaveNoDiagnostics();
 });

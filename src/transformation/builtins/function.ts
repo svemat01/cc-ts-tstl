@@ -4,9 +4,9 @@ import * as lua from "../../LuaAST";
 import { TransformationContext } from "../context";
 import { unsupportedForTarget, unsupportedProperty, unsupportedSelfFunctionConversion } from "../utils/diagnostics";
 import { ContextType, getFunctionContextType } from "../utils/function-context";
-import { createUnpackCall } from "../utils/lua-ast";
 import { LuaLibFeature, transformLuaLibFunction } from "../utils/lualib";
 import { transformCallAndArguments } from "../visitors/call";
+import { createUnpackCall } from "../utils/lua-ast";
 
 export function transformFunctionPrototypeCall(
     context: TransformationContext,
@@ -40,8 +40,12 @@ export function transformFunctionProperty(
 ): lua.Expression | undefined {
     switch (node.name.text) {
         case "length":
-            if (context.luaTarget === LuaTarget.Lua51 || context.luaTarget === LuaTarget.Universal) {
-                context.diagnostics.push(unsupportedForTarget(node, "function.length", LuaTarget.Lua51));
+            if (
+                context.luaTarget === LuaTarget.Lua50 ||
+                context.luaTarget === LuaTarget.Lua51 ||
+                context.luaTarget === LuaTarget.Universal
+            ) {
+                context.diagnostics.push(unsupportedForTarget(node, "function.length", context.luaTarget));
             }
 
             // debug.getinfo(fn)

@@ -35,6 +35,18 @@ test.each(["\\", "/"])("transpileFiles handles paths with noImplicitSelf and %s 
     }
 });
 
+test("noImplicitSelf does not affect functions in default libraries", () => {
+    util.testFunction`
+        const array = [1, 2, 3];
+        const items = array.filter(x => x > 1); // array.filter is in external library
+        return items;
+    `
+        .setOptions({
+            noImplicitSelf: true,
+        })
+        .expectToMatchJsResult();
+});
+
 test("enables noSelfInFile behavior for methods", () => {
     util.testFunction`
         class FooBar {
@@ -66,4 +78,18 @@ test("generates declaration files with @noSelfInFile", () => {
         .addExtraFile("foo.d.ts", fooDeclaration)
         .ignoreDiagnostics([couldNotResolveRequire.code]) // no foo implementation in the project to create foo.lua
         .expectToHaveNoDiagnostics();
+});
+
+// https://github.com/TypeScriptToLua/TypeScriptToLua/issues/1292
+test("explicit this parameter respected over noImplicitSelf", () => {
+    util.testModule`
+        function foo(this: unknown, arg: any) {
+            return {self: this, arg};
+        }
+        export const result = foo(1);
+    `
+        .setOptions({
+            noImplicitSelf: true,
+        })
+        .expectToMatchJsResult();
 });

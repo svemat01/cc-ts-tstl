@@ -84,16 +84,14 @@ export const unsupportedRightShiftOperator = createErrorDiagnosticFactory(
     "Right shift operator is not supported for target Lua 5.3. Use `>>>` instead."
 );
 
-type NonUniversalTarget = Exclude<LuaTarget, LuaTarget.Universal>;
-
 const getLuaTargetName = (version: LuaTarget) => (version === LuaTarget.LuaJIT ? "LuaJIT" : (version === LuaTarget.Cobalt ? "Cobalt" : `Lua ${version}`));
 export const unsupportedForTarget = createErrorDiagnosticFactory(
-    (functionality: string, version: NonUniversalTarget) =>
+    (functionality: string, version: LuaTarget) =>
         `${functionality} is/are not supported for target ${getLuaTargetName(version)}.`
 );
 
 export const unsupportedForTargetButOverrideAvailable = createErrorDiagnosticFactory(
-    (functionality: string, version: NonUniversalTarget, optionName: keyof TypeScriptToLuaOptions) =>
+    (functionality: string, version: LuaTarget, optionName: keyof TypeScriptToLuaOptions) =>
         `As a precaution, ${functionality} is/are not supported for target ${getLuaTargetName(
             version
         )} due to language features/limitations. ` +
@@ -131,11 +129,7 @@ export const invalidMultiReturnAccess = createErrorDiagnosticFactory(
     "The LuaMultiReturn type can only be accessed via an element access expression of a numeric type."
 );
 
-export const invalidOperatorMappingUse = createErrorDiagnosticFactory(
-    "This function must always be directly called and cannot be referred to."
-);
-
-export const invalidTableExtensionUse = createErrorDiagnosticFactory(
+export const invalidCallExtensionUse = createErrorDiagnosticFactory(
     "This function must be called directly and cannot be referred to."
 );
 
@@ -149,6 +143,10 @@ export const annotationDeprecated = createWarningDiagnosticFactory(
     (kind: AnnotationKind) =>
         `'@${kind}' is deprecated and will be removed in a future update. Please update your code before upgrading to the next release, otherwise your project will no longer compile. ` +
         `See https://typescripttolua.github.io/docs/advanced/compiler-annotations#${kind.toLowerCase()} for more information.`
+);
+
+export const truthyOnlyConditionalValue = createWarningDiagnosticFactory(
+    "Only false and nil evaluate to 'false' in Lua, everything else is considered 'true'. Explicitly compare the value with ===."
 );
 
 export const notAllowedOptionalAssignment = createErrorDiagnosticFactory(

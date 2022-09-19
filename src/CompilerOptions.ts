@@ -37,6 +37,7 @@ export interface TypeScriptToLuaOptions {
     sourceMapTraceback?: boolean;
     tstlVerbose?: boolean;
     lua51AllowTryCatchInAsyncAwait?: boolean;
+    measurePerformance?: boolean;
 }
 
 export type CompilerOptions = OmitIndexSignature<ts.CompilerOptions> &
@@ -52,6 +53,7 @@ export enum LuaLibImportKind {
 
 export enum LuaTarget {
     Universal = "universal",
+    Lua50 = "5.0",
     Lua51 = "5.1",
     Lua52 = "5.2",
     Lua53 = "5.3",
@@ -85,6 +87,10 @@ export function validateOptions(options: CompilerOptions): ts.Diagnostic[] {
 
     if (options.jsx && options.jsx !== JsxEmit.React) {
         diagnostics.push(diagnosticFactories.unsupportedJsxEmit());
+    }
+
+    if (options.paths && !options.baseUrl) {
+        diagnostics.push(diagnosticFactories.pathsWithoutBaseUrl());
     }
 
     return diagnostics;

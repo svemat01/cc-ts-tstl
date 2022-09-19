@@ -4,15 +4,17 @@ import { transformBuiltinPropertyAccessExpression } from "../builtins";
 import { FunctionVisitor, TransformationContext } from "../context";
 import { AnnotationKind, getTypeAnnotations } from "../utils/annotations";
 import {
-    annotationRemoved,
+    invalidCallExtensionUse,
     invalidMultiReturnAccess,
     unsupportedOptionalCompileMembersOnly,
 } from "../utils/diagnostics";
+import { getExtensionKindForNode } from "../utils/language-extensions";
 import { addToNumericExpression } from "../utils/lua-ast";
 import { LuaLibFeature, transformLuaLibFunction } from "../utils/lualib";
 import { isArrayType, isNumberType, isStringType } from "../utils/typescript";
 import { tryGetConstEnumValue } from "./enum";
 import { transformOrderedExpressions } from "./expression-list";
+import { callExtensions } from "./language-extensions/call-extension";
 import { isMultiReturnCall, returnsMultiType } from "./language-extensions/multi";
 import {
     transformOptionalChainWithCapture,
@@ -107,12 +109,6 @@ export function transformPropertyAccessExpressionWithCapture(
     const type = context.checker.getTypeAtLocation(node.expression);
     const isOptionalLeft = isOptionalContinuation(node.expression);
 
-    const annotations = getTypeAnnotations(type);
-
-    if (annotations.has(AnnotationKind.LuaTable)) {
-        context.diagnostics.push(annotationRemoved(node, AnnotationKind.LuaTable));
-    }
-
     const constEnumValue = tryGetConstEnumValue(context, node);
     if (constEnumValue) {
         return { expression: constEnumValue };
@@ -127,6 +123,7 @@ export function transformPropertyAccessExpressionWithCapture(
     }
 
     // Do not output path for member only enums
+    const annotations = getTypeAnnotations(type);
     if (annotations.has(AnnotationKind.CompileMembersOnly)) {
         if (isOptionalLeft) {
             context.diagnostics.push(unsupportedOptionalCompileMembersOnly(node));
@@ -150,6 +147,18 @@ export function transformPropertyAccessExpressionWithCapture(
         // This assumes that nothing returned by builtin property accesses are callable.
         // If this assumption is no longer true, this may need to be updated.
         return { expression: builtinResult };
+    }
+
+    if (
+        ts.isIdentifier(node.expression) &&
+        node.parent &&
+        (!ts.isCallExpression(node.parent) || node.parent.expression !== node)
+    ) {
+        // Check if this is a method call extension that is not used as a call
+        const extensionType = getExtensionKindForNode(context, node);
+        if (extensionType && callExtensions.has(extensionType)) {
+            context.diagnostics.push(invalidCallExtensionUse(node));
+        }
     }
 
     const table = context.transformExpression(node.expression);

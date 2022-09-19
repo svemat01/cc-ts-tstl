@@ -1,5 +1,5 @@
 import * as util from "../../util";
-import { invalidTableExtensionUse } from "../../../src/transformation/utils/diagnostics";
+import { invalidCallExtensionUse } from "../../../src/transformation/utils/diagnostics";
 
 describe("LuaTableGet & LuaTableSet extensions", () => {
     test("stand-alone function", () => {
@@ -78,7 +78,7 @@ describe("LuaTableGet & LuaTableSet extensions", () => {
             ${statement}
         `
             .withLanguageExtensions()
-            .expectDiagnosticsToMatchSnapshot([invalidTableExtensionUse.code]);
+            .expectDiagnosticsToMatchSnapshot([invalidCallExtensionUse.code]);
     });
 });
 
@@ -168,8 +168,32 @@ describe("LuaTableHas extension", () => {
             ${statement}
         `
             .withLanguageExtensions()
-            .expectDiagnosticsToMatchSnapshot([invalidTableExtensionUse.code]);
+            .expectDiagnosticsToMatchSnapshot([invalidCallExtensionUse.code]);
     });
+
+    test.each(["LuaTable<string, number>", "LuaMap<string, number>", "LuaSet<string>"])(
+        "invalid use method assignment (%p)",
+        type => {
+            util.testModule`
+                const table = new ${type}();
+                const has = table.has;
+            `
+                .withLanguageExtensions()
+                .expectDiagnosticsToMatchSnapshot([invalidCallExtensionUse.code]);
+        }
+    );
+
+    test.each(["LuaTable<string, number>", "LuaMap<string, number>", "LuaSet<string>"])(
+        "invalid use method expression (%p)",
+        type => {
+            util.testModule`
+                const table = new ${type}();
+                ["a", "b", "c"].map(table.has);
+            `
+                .withLanguageExtensions()
+                .expectDiagnosticsToMatchSnapshot([invalidCallExtensionUse.code]);
+        }
+    );
 });
 
 describe("LuaTableDelete extension", () => {
@@ -237,6 +261,65 @@ describe("LuaTableDelete extension", () => {
             .withLanguageExtensions()
             .setReturnExport("result")
             .expectToEqual(value);
+    });
+});
+
+describe("LuaTableAddKey extension", () => {
+    test("LuaTableAddKey standalone function", () => {
+        util.testModule`
+            declare const tableAddKey: LuaTableAddKey<{}, string>;
+            export const table = { foo: "bar" };
+            tableAddKey(table, "baz");
+        `
+            .withLanguageExtensions()
+            .expectToEqual({ table: { foo: "bar", baz: true } });
+    });
+
+    test("LuaTableAddKey namespace function", () => {
+        util.testModule`
+            declare namespace Table {
+                export const tableAddKey: LuaTableAddKey<{}, string>;
+            }
+            export const table = { foo: "bar" };
+            Table.tableAddKey(table, "baz");
+        `
+            .withLanguageExtensions()
+            .expectToEqual({ table: { foo: "bar", baz: true } });
+    });
+
+    test("LuaTableAddKey method", () => {
+        util.testModule`
+            interface TableWithAddKey {
+                addKey: LuaTableAddKeyMethod<string>;
+            }
+            export const table = {} as TableWithAddKey;
+            table.addKey("bar");
+        `
+            .withLanguageExtensions()
+            .expectToEqual({ table: { bar: true } });
+    });
+
+    test.each([
+        ["LuaTableAddKey<{}, string>", 'func({}, "foo")', undefined],
+        ["LuaTableAddKey<{}, string>", '"truthy" && func({}, "foo")', undefined],
+    ])("Table functions used as expression", (funcType, expression, value) => {
+        util.testModule`
+            declare const func: ${funcType}
+            export const result = ${expression}
+        `
+            .withLanguageExtensions()
+            .setReturnExport("result")
+            .expectToEqual(value);
+    });
+
+    test("Method used as expression", () => {
+        util.testModule`
+            const tbl = {} as { func: LuaTableAddKeyMethod<string> }
+            export const result = tbl.func("foo")
+        `
+            .withLanguageExtensions()
+            .setReturnExport("result")
+            .expectToEqual(undefined);
     });
 });
 
@@ -332,6 +415,16 @@ describe("LuaTable extension interface", () => {
             .expectToEqual({ baz: 5 });
     });
 
+    test("table add", () => {
+        util.testFunction`
+            const tbl = new LuaSet<string>()
+            tbl.add("foo");
+            return tbl
+        `
+            .withLanguageExtensions()
+            .expectToEqual({ foo: true });
+    });
+
     test.each(['new LuaTable().get("foo");', 'new LuaTable().set("foo", "bar");'])(
         "table immediate access (%p)",
         statement => {
@@ -354,4 +447,23 @@ describe("LuaTable extension interface", () => {
             .withLanguageExtensions()
             .expectToEqual({ foo: 1, bar: 3, baz: 5 });
     });
+});
+
+test.each([
+    [undefined, undefined],
+    ["new LuaSet()", true],
+])("call on optional table with strictNullChecks (%s)", (value, expected) => {
+    util.testFunction`
+        function getFoo(): LuaSet<string> | undefined {
+            return ${value}
+        }
+        const foo = getFoo()
+        foo?.add("foo")
+        return foo?.has("foo")
+    `
+        .setOptions({
+            strictNullChecks: true,
+        })
+        .withLanguageExtensions()
+        .expectToEqual(expected);
 });
