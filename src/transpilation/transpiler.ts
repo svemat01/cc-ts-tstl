@@ -115,17 +115,17 @@ export class Transpiler {
         const resolutionResult = resolveDependencies(program, files, this.emitHost);
         diagnostics.push(...resolutionResult.diagnostics);
 
-        const lualibRequired = resolutionResult.resolvedFiles.some(f => f.fileName === "lualib_bundle");
+        const lualibRequired = resolutionResult.resolvedFiles.some(f => f.fileName === (options.luaLibName ?? "lualib_bundle"));
         if (lualibRequired) {
             // Remove lualib placeholders from resolution result
-            resolutionResult.resolvedFiles = resolutionResult.resolvedFiles.filter(f => f.fileName !== "lualib_bundle");
+            resolutionResult.resolvedFiles = resolutionResult.resolvedFiles.filter(f => f.fileName !== (options.luaLibName ?? "lualib_bundle"));
 
             if (options.tstlVerbose) {
                 console.log("Including lualib bundle");
             }
 
             // Add lualib bundle to source dir 'virtually', will be moved to correct output dir in emitPlan
-            const fileName = normalizeSlashes(path.resolve(getSourceDir(program), "lualib_bundle.lua"));
+            const fileName = normalizeSlashes(path.resolve(getSourceDir(program), (options.luaLibName ?? "lualib_bundle") + ".lua"));
             const luaTarget = options.luaTarget ?? LuaTarget.Universal;
             resolutionResult.resolvedFiles.unshift({ fileName, code: getLuaLibBundle(luaTarget, this.emitHost) });
         }

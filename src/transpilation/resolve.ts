@@ -60,8 +60,8 @@ class ResolutionContext {
 
     public resolveImport(file: ProcessedFile, required: string): void {
         // Do no resolve lualib - always use the lualib of the application entry point, not the lualib from external packages
-        if (required === "lualib_bundle") {
-            this.resolvedFiles.set("lualib_bundle", { fileName: "lualib_bundle", code: "" });
+        if (required === (this.options.luaLibName ?? "lualib_bundle")) {
+            this.resolvedFiles.set(this.options.luaLibName ?? "lualib_bundle", { fileName: this.options.luaLibName ?? "lualib_bundle", code: "" });
             return;
         }
 
