@@ -123,35 +123,35 @@ export abstract class TestBuilder {
     // TODO: Use testModule in these cases?
     protected tsHeader = "";
     public setTsHeader(tsHeader: string): this {
-        expect(this.hasProgram).toBe(false);
+        this.throwIfProgramExists("setTsHeader");
         this.tsHeader = tsHeader;
         return this;
     }
 
     private luaHeader = "";
     public setLuaHeader(luaHeader: string): this {
-        expect(this.hasProgram).toBe(false);
+        this.throwIfProgramExists("setLuaHeader");
         this.luaHeader += luaHeader;
         return this;
     }
 
     protected jsHeader = "";
     public setJsHeader(jsHeader: string): this {
-        expect(this.hasProgram).toBe(false);
+        this.throwIfProgramExists("setJsHeader");
         this.jsHeader += jsHeader;
         return this;
     }
 
     protected abstract getLuaCodeWithWrapper(code: string): string;
     public setLuaFactory(luaFactory: (code: string) => string): this {
-        expect(this.hasProgram).toBe(false);
+        this.throwIfProgramExists("setLuaFactory");
         this.getLuaCodeWithWrapper = luaFactory;
         return this;
     }
 
     private semanticCheck = true;
     public disableSemanticCheck(): this {
-        expect(this.hasProgram).toBe(false);
+        this.throwIfProgramExists("disableSemanticCheck");
         this.semanticCheck = false;
         return this;
     }
@@ -162,19 +162,19 @@ export abstract class TestBuilder {
         skipLibCheck: true,
         target: ts.ScriptTarget.ES2017,
         lib: ["lib.esnext.d.ts"],
-        moduleResolution: ts.ModuleResolutionKind.NodeJs,
+        moduleResolution: ts.ModuleResolutionKind.Node10,
         resolveJsonModule: true,
-        experimentalDecorators: true,
         sourceMap: true,
     };
     public setOptions(options: tstl.CompilerOptions = {}): this {
-        expect(this.hasProgram).toBe(false);
+        this.throwIfProgramExists("setOptions");
         Object.assign(this.options, options);
         return this;
     }
 
     public withLanguageExtensions(): this {
-        this.setOptions({ types: [path.resolve(__dirname, "..", "language-extensions")] });
+        const langExtTypes = path.resolve(__dirname, "..", "language-extensions");
+        this.options.types = this.options.types ? [...this.options.types, langExtTypes] : [langExtTypes];
         // Polyfill lualib for JS
         this.setJsHeader(`
             function $multi(...args) { return args; }
@@ -184,23 +184,29 @@ export abstract class TestBuilder {
 
     protected mainFileName = "main.ts";
     public setMainFileName(mainFileName: string): this {
-        expect(this.hasProgram).toBe(false);
+        this.throwIfProgramExists("setMainFileName");
         this.mainFileName = mainFileName;
         return this;
     }
 
     protected extraFiles: Record<string, string> = {};
     public addExtraFile(fileName: string, code: string): this {
-        expect(this.hasProgram).toBe(false);
+        this.throwIfProgramExists("addExtraFile");
         this.extraFiles[fileName] = normalizeSlashes(code);
         return this;
     }
 
     private customTransformers?: ts.CustomTransformers;
     public setCustomTransformers(customTransformers?: ts.CustomTransformers): this {
-        expect(this.hasProgram).toBe(false);
+        this.throwIfProgramExists("setCustomTransformers");
         this.customTransformers = customTransformers;
         return this;
+    }
+
+    private throwIfProgramExists(name: string) {
+        if (this.hasProgram) {
+            throw new Error(`${name}() should not be called after an .expect() or .debug()`);
+        }
     }
 
     // Transpilation and execution
@@ -237,7 +243,7 @@ export abstract class TestBuilder {
     public getLuaResult(): tstl.TranspileVirtualProjectResult {
         const program = this.getProgram();
         const preEmitDiagnostics = ts.getPreEmitDiagnostics(program);
-        const collector = createEmitOutputCollector();
+        const collector = createEmitOutputCollector(this.options.extension);
         const { diagnostics: transpileDiagnostics } = new tstl.Transpiler({ emitHost: this.getEmitHost() }).emit({
             program,
             customTransformers: this.customTransformers,
@@ -278,7 +284,7 @@ export abstract class TestBuilder {
         const program = this.getProgram();
         program.getCompilerOptions().module = ts.ModuleKind.CommonJS;
 
-        const collector = createEmitOutputCollector();
+        const collector = createEmitOutputCollector(this.options.extension);
         const { diagnostics } = program.emit(undefined, collector.writeFile);
         return { transpiledFiles: collector.files, diagnostics: [...diagnostics] };
     }
@@ -314,12 +320,23 @@ export abstract class TestBuilder {
     // Actions
 
     public debug(includeLualib = false): this {
-        const transpiledFiles = this.getLuaResult().transpiledFiles;
+        const { transpiledFiles, diagnostics } = this.getLuaResult();
         const luaCode = transpiledFiles
             .filter(f => includeLualib || f.outPath !== "lualib_bundle.lua")
             .map(f => `[${f.outPath}]:\n${f.lua?.replace(/^/gm, "  ")}`);
         const value = prettyFormat.format(this.getLuaExecutionResult()).replace(/^/gm, "  ");
         console.log(`Lua Code:\n${luaCode.join("\n")}\n\nValue:\n${value}`);
+
+        if (diagnostics.length > 0) {
+            console.log(
+                ts.formatDiagnostics(diagnostics.map(tstl.prepareDiagnosticForFormatting), {
+                    getCurrentDirectory: () => "",
+                    getCanonicalFileName: fileName => fileName,
+                    getNewLine: () => "\n",
+                })
+            );
+        }
+
         return this;
     }
 
@@ -344,6 +361,11 @@ export abstract class TestBuilder {
         this.diagnosticsChecked = true;
 
         expect(this.getLuaDiagnostics()).not.toHaveDiagnostics();
+        return this;
+    }
+
+    public expectNoTranspileException(): this {
+        expect(() => this.getLuaResult()).not.toThrow();
         return this;
     }
 
@@ -469,7 +491,13 @@ end)());`;
     }
 
     private injectLuaFile(state: LuaState, lua: Lua, lauxlib: LauxLib, fileName: string, fileContent: string) {
-        const modName = formatPathToLuaPath(fileName.replace(".lua", ""));
+        let extension = this.options.extension ?? ".lua";
+        if (!extension.startsWith(".")) {
+            extension = `.${extension}`;
+        }
+        const modName = fileName.endsWith(extension)
+            ? formatPathToLuaPath(fileName.substring(0, fileName.length - extension.length))
+            : fileName;
         if (this.options.luaTarget === tstl.LuaTarget.Lua50) {
             // Adding source Lua to the _LOADED cache will allow require to find it
             lua.lua_getglobal(state, "_LOADED");
@@ -611,7 +639,7 @@ class ProjectTestBuilder extends ModuleTestBuilder {
     @memoize
     public getLuaResult(): tstl.TranspileVirtualProjectResult {
         // Override getLuaResult to use transpileProject with tsconfig.json instead
-        const collector = createEmitOutputCollector();
+        const collector = createEmitOutputCollector(this.options.extension);
         const { diagnostics } = transpileProject(this.tsConfig, this.options, collector.writeFile);
 
         return { diagnostics: [...diagnostics], transpiledFiles: collector.files };

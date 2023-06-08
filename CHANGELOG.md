@@ -1,5 +1,36 @@
 # Changelog
 
+## 1.16.0
+
+- Upgraded TypeScript to 5.1.3.
+- Added support for [TypeScript 5.0 decorators](https://www.typescriptlang.org/docs/handbook/release-notes/typescript-5-0.html#decorators).
+  - Old-style decorators will still work as long as you have `experimentalDecorators` configured, otherwise the new standard is used.
+- Added support for [class static initialization blocks](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Classes/Static_initialization_blocks).
+- Fixed a bug causing the `tstl` object in tsconfig.json not to be properly extended when extending a tsconfig from node_modules.
+
+## 1.15.0
+
+- Using `extends` in tsconfig.json now also correctly merges settings in the `tstl` block (shallow merge).
+- Now avoiding assigning default parameter values if the default value is `nil` (`null` or `undefined`).
+- Fixed a bug where indexing a `LuaMultiReturn` value with [0] would still return everything.
+- Fixed a bug with nested namespaces causing unexpected nil indexing errors.
+
+## 1.14.0
+
+- **[Breaking]** Upgraded TypeScript to 5.0.
+- Added support for `Number.toFixed`.
+- Added support for spread expressions with `LuaPairsIterable` and `LuaPairsKeysIterable`.
+- Fixed a bug breaking module resolution when using a custom file extension.
+- Fixed various exceptions that could happen when trying to translate invalid TS.
+
+## 1.13.0
+
+- Fixed alternate file extensions (other than .lua, if configured) breaking module resolution and emitted require statements.
+- Added experimental support for `"luaLibImport": "require-minimal"` configuration option. This will output a lualib bundle containing only the lualib functions used by your code. This might not work if you are including external tstl-generated Lua, for example from a npm package.
+- Added support for the "exports" field in package.json.
+- Fixed some exceptions resulting from invalid language-extensions use.
+- Fixed an exception when using compound assignment (like `+=`) with array length.
+
 ## 1.12.0
 
 - Reworked how tstl detects and rewrites `require` statements during dependency resolution. This should reduce the amount of false-positive matches of require statements: require statements in string literals or comments should no longer be detected by tstl. This means require statements in string literals or comments can survive the transpiler without causing a 'could not resolve lua sources' error or getting rewritten into nonsense.
