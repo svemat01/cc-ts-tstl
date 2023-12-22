@@ -128,6 +128,7 @@ describe("command line", () => {
             ["luaTarget", "5.3", { luaTarget: tstl.LuaTarget.Lua53 }],
             ["luaTarget", "jit", { luaTarget: tstl.LuaTarget.LuaJIT }],
             ["luaTarget", "cc",  { luaTarget: tstl.LuaTarget.Cobalt }],
+            ["luaTarget", "cc-5.2",  { luaTarget: tstl.LuaTarget.Cobalt52 }],
 
             ["luaBundle", "foo", { luaBundle: "foo" }],
             ["luaBundleEntry", "bar", { luaBundleEntry: "bar" }],
@@ -250,6 +251,7 @@ describe("tsconfig", () => {
             ["luaTarget", "5.4", { luaTarget: tstl.LuaTarget.Lua54 }],
             ["luaTarget", "jit", { luaTarget: tstl.LuaTarget.LuaJIT }],
             ["luaTarget", "cc",  { luaTarget: tstl.LuaTarget.Cobalt }],
+            ["luaTarget", "cc-5.2",  { luaTarget: tstl.LuaTarget.Cobalt52 }],
 
             ["luaBundle", "foo", { luaBundle: "foo" }],
             ["luaBundleEntry", "bar", { luaBundleEntry: "bar" }],

@@ -74,6 +74,7 @@ export function transformBinaryBitOperation(
 
         case LuaTarget.Lua52:
         case LuaTarget.Cobalt:
+        case LuaTarget.Cobalt52:
             return transformBinaryBitLibOperation(node, left, right, operator, "bit32");
         default:
             const luaOperator = transformBitOperatorToLuaOperator(context, node, operator);

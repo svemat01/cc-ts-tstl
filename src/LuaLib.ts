@@ -5,9 +5,11 @@ import { LuaTarget } from "./CompilerOptions";
 import { getOrUpdate } from "./utils";
 
 export enum LuaLibFeature {
+    ArrayAt = "ArrayAt",
     ArrayConcat = "ArrayConcat",
     ArrayEntries = "ArrayEntries",
     ArrayEvery = "ArrayEvery",
+    ArrayFill = "ArrayFill",
     ArrayFilter = "ArrayFilter",
     ArrayForEach = "ArrayForEach",
     ArrayFind = "ArrayFind",
@@ -32,6 +34,10 @@ export enum LuaLibFeature {
     ArrayFlat = "ArrayFlat",
     ArrayFlatMap = "ArrayFlatMap",
     ArraySetLength = "ArraySetLength",
+    ArrayToReversed = "ArrayToReversed",
+    ArrayToSorted = "ArrayToSorted",
+    ArrayToSpliced = "ArrayToSpliced",
+    ArrayWith = "ArrayWith",
     Await = "Await",
     Class = "Class",
     ClassExtends = "ClassExtends",
@@ -57,7 +63,10 @@ export enum LuaLibFeature {
     New = "New",
     Number = "Number",
     NumberIsFinite = "NumberIsFinite",
+    NumberIsInteger = "NumberIsInteger",
     NumberIsNaN = "NumberIsNaN",
+    NumberParseInt = "ParseInt",
+    NumberParseFloat = "ParseFloat",
     NumberToString = "NumberToString",
     NumberToFixed = "NumberToFixed",
     ObjectAssign = "ObjectAssign",
@@ -106,6 +115,8 @@ export enum LuaLibFeature {
     SymbolRegistry = "SymbolRegistry",
     TypeOf = "TypeOf",
     Unpack = "Unpack",
+    Using = "Using",
+    UsingAsync = "UsingAsync",
 }
 
 export interface LuaLibFeatureInfo {

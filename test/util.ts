@@ -42,7 +42,7 @@ function getLuaBindingsForVersion(target: tstl.LuaTarget): { lauxlib: LauxLib; l
         const { lauxlib, lua, lualib } = require("lua-wasm-bindings/dist/lua.53");
         return { lauxlib, lua, lualib };
     }
-    if (target === tstl.LuaTarget.LuaJIT || target === tstl.LuaTarget.Cobalt) {
+    if (target === tstl.LuaTarget.LuaJIT || target === tstl.LuaTarget.Cobalt || target === tstl.LuaTarget.Cobalt52) {
         throw Error("Can't use executeLua() or expectToMatchJsResult() wit LuaJIT or Cobalt as target!");
     }
 
@@ -88,6 +88,7 @@ export function expectEachVersionExceptJit<T>(
         [tstl.LuaTarget.Lua54]: expectation,
         [tstl.LuaTarget.LuaJIT]: false, // Exclude JIT
         [tstl.LuaTarget.Cobalt]: false, // Exclude CC
+        [tstl.LuaTarget.Cobalt52]: false, // Exclude CC
     };
 }
 
@@ -258,11 +259,18 @@ export abstract class TestBuilder {
     @memoize
     public getMainLuaFileResult(): ExecutableTranspiledFile {
         const { transpiledFiles } = this.getLuaResult();
+        const mainFileName = normalizeSlashes(this.mainFileName);
         const mainFile = this.options.luaBundle
             ? transpiledFiles[0]
-            : transpiledFiles.find(({ sourceFiles }) =>
-                  sourceFiles.some(f => f.fileName === normalizeSlashes(this.mainFileName))
-              );
+            : transpiledFiles.find(({ sourceFiles }) => sourceFiles.some(f => f.fileName === mainFileName));
+
+        if (mainFile === undefined) {
+            throw new Error(
+                `No source file could be found matching main file: ${mainFileName}.\nSource files in test:\n${transpiledFiles
+                    .flatMap(f => f.sourceFiles.map(sf => sf.fileName))
+                    .join("\n")}`
+            );
+        }
 
         expect(mainFile).toMatchObject({ lua: expect.any(String), luaSourceMap: expect.any(String) });
         return mainFile as ExecutableTranspiledFile;

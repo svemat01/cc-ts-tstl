@@ -1,5 +1,45 @@
 # Changelog
 
+## 1.22.0
+
+- Added support for `Number.isInteger(n)`
+- Added support for `afterEmit` plugin hook that can be used to post-process lua files after (possibly incremental) builds
+- Fixed a bug causing `@noSelfInFile` sometimes to be ignored
+
+## 1.21.0
+
+- Added support for `continue` for Lua 5.0, 5.1 and universal targets.
+- Added support for the new `/** @customName myCustomName **/` decorator, which allows renaming of variables and identifiers.
+  - This is useful to get around names that are reserved keywords in TypeScript, but are used in Lua API
+- Fixed a bug that caused super calls in static methods to throw an error
+
+## 1.20.0
+
+- Added support for `Number.parseInt` and `Number.parseFloat` (mapped to same implementation as global `parseInt` and `parseFloat`)
+- Added implementation for multiple `Number` constants like `Number.EPSILON`
+- Added support for `Array.at`
+- Fixed a bug when throwing an error object in a Lua environment without `debug` module
+- Fixed a bug causing files not to be found when returning an absolute path from a `moduleResolution` plugin
+
+## 1.19.0
+
+- Added support for the new TypeScript 5.2 `using` keyword for explicit resource management. See the [TypeScript release notes](https://devblogs.microsoft.com/typescript/announcing-typescript-5-2/#using-declarations-and-explicit-resource-management) for more information.
+- Added support for the newly introduced 'copying array methods' `toReversed`, `toSorted`, `toSpliced` and `with`. These were also introduced in TypeScript 5.2, see [their release notes](https://devblogs.microsoft.com/typescript/announcing-typescript-5-2/#copying-array-methods) for more information.
+
+## 1.18.0
+
+- Upgraded TypeScript to 5.2.2
+- The `noResolvePaths` option now accepts glob paths (for example, 'mydir/hello\*' to not resolve any files in mydir starting with hello).
+  - This also allows disabling module resolution completely by providing a '\*\*' pattern in your tsconfig.json `noResolvePaths`.
+
+## 1.17.0
+
+- Added the `moduleResolution` plugin, allowing you to provide custom module resolution logic. See [the docs](https://typescripttolua.github.io/docs/api/plugins#moduleresolution) for more info.
+- Added `isEmpty` to `LuaTable`, `LuaMap` and `LuaSet` (and their read-only counterparts). This simply to `next(tbl) == nil`, allowing for a simple check to see if a table is empty or not.
+- Fixed a bug with synthetic nodes (e.g. created by custom TypeScript transformers) throwing an exception.
+- Fixed unnecessary extra unpacking of tables
+- Fixed some bugs with new decorators
+
 ## 1.16.0
 
 - Upgraded TypeScript to 5.1.3.

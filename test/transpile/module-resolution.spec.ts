@@ -304,7 +304,11 @@ describe("module resolution project with dependencies built by tstl library mode
         const transpileResult = util
             .testProject(path.join(projectPath, "tsconfig.json"))
             .setMainFileName(path.join(projectPath, "main.ts"))
-            .setOptions({ outDir: "tstl-out", moduleResolution: ts.ModuleResolutionKind.Node16 })
+            .setOptions({
+                outDir: "tstl-out",
+                moduleResolution: ts.ModuleResolutionKind.Node16,
+                module: ts.ModuleKind.Node16,
+            })
             .expectToEqual(expectedResult)
             .getLuaResult();
 
@@ -323,6 +327,7 @@ describe("module resolution project with dependencies built by tstl library mode
                 luaBundle: "bundle.lua",
                 luaBundleEntry: mainFile,
                 moduleResolution: ts.ModuleResolutionKind.Node16,
+                module: ts.ModuleKind.Node16,
             })
             .expectToEqual(expectedResult);
     });
@@ -439,6 +444,65 @@ describe("module resolution should not try to resolve modules in noResolvePaths"
             `
             )
             .setOptions({ noResolvePaths: ["a.b.c.foo", "somethingExtra", "dontResolveThis"] })
+            .expectToHaveNoDiagnostics();
+    });
+
+    test("can ignore specific files with glob pattern", () => {
+        util.testModule`
+            // Pre-Load as to not error out at runtime
+            import "preload";
+
+            import "ignoreme";
+            import * as b from "./actualfile";
+
+            export const result = b.foo();
+        `
+            .addExtraFile("preload.lua", 'package.preload["ignoreme"] = function() return nil end')
+            .addExtraFile(
+                "actualfile.ts",
+                `export function foo()
+                {
+                    return 'foo';
+                }`
+            )
+            .addExtraFile(
+                "ignoreme.d.ts",
+                `declare module "ignoreme" {
+                    export function foo(): void;
+                }`
+            )
+            .setOptions({ noResolvePaths: ["ignore*"] })
+            .expectToHaveNoDiagnostics()
+            .expectToEqual({ result: "foo" });
+    });
+
+    test("can ignore all files with glob pattern in require", () => {
+        util.testModule`
+            declare function require(this: void, module: string): any;
+            
+            const a = require("a")
+            const b = require("b/b")
+            const c = require("c/c/c")
+            const d = require("!:?somefile")
+        `
+            .setOptions({ noResolvePaths: ["**"] })
+            .expectToHaveNoDiagnostics();
+    });
+
+    test("can ignore all files with glob pattern as used in imported lua sources", () => {
+        util.testModule`
+            import * as lua from "./luasource";
+            lua.foo();
+        `
+            .addExtraFile("luasource.d.ts", "export function foo(): void;")
+            .addExtraFile(
+                "luasource.lua",
+                `
+                require("ignoreme!")
+                require("i.g.n.o.r.e")
+            `
+            )
+            .setOptions({ noResolvePaths: ["**"] })
             .expectToHaveNoDiagnostics();
     });
 });
@@ -645,6 +709,30 @@ test("supports complicated paths configuration", () => {
 
 test("paths without baseUrl is error", () => {
     util.testFunction``.setOptions({ paths: {} }).expectToHaveDiagnostics([pathsWithoutBaseUrl.code]);
+});
+
+test("module resolution using plugin", () => {
+    const baseProjectPath = path.resolve(__dirname, "module-resolution", "project-with-module-resolution-plugin");
+    const projectTsConfig = path.join(baseProjectPath, "tsconfig.json");
+    const mainFile = path.join(baseProjectPath, "main.ts");
+
+    const testBuilder = util
+        .testProject(projectTsConfig)
+        .setMainFileName(mainFile)
+        .setOptions({
+            luaPlugins: [
+                {
+                    name: path.join(__dirname, "./plugins/moduleResolution.ts"),
+                },
+            ],
+        })
+        .expectToHaveNoDiagnostics();
+
+    const luaResult = testBuilder.getLuaResult();
+
+    expect(luaResult.transpiledFiles).toHaveLength(3);
+
+    testBuilder.expectToEqual({ result: ["foo", "absolutefoo"] });
 });
 
 function snapshotPaths(files: tstl.TranspiledFile[]) {

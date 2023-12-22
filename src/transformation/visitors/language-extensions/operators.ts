@@ -110,6 +110,7 @@ function checkHasLua53(context: TransformationContext, node: ts.CallExpression, 
         context.luaTarget === LuaTarget.Lua52 ||
         context.luaTarget === LuaTarget.LuaJIT ||
         context.luaTarget === LuaTarget.Cobalt ||
+        context.luaTarget === LuaTarget.Cobalt52 ||
         context.luaTarget === LuaTarget.Universal;
     if (isBefore53) {
         const luaTarget = context.luaTarget === LuaTarget.Universal ? LuaTarget.Lua51 : context.luaTarget;
