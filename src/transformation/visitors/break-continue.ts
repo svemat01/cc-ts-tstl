@@ -14,7 +14,8 @@ export const transformContinueStatement: FunctionVisitor<ts.ContinueStatement> =
     const continuedWith =
         context.luaTarget === LuaTarget.Universal ||
         context.luaTarget === LuaTarget.Lua50 ||
-        context.luaTarget === LuaTarget.Lua51
+        context.luaTarget === LuaTarget.Lua51 ||
+        context.luaTarget === LuaTarget.Cobalt
             ? LoopContinued.WithRepeatBreak
             : LoopContinued.WithGoto;
 

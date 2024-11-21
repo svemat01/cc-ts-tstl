@@ -40,6 +40,7 @@ export interface TypeScriptToLuaOptions {
     tstlVerbose?: boolean;
     lua51AllowTryCatchInAsyncAwait?: boolean;
     measurePerformance?: boolean;
+    luaLibName?: string;
 }
 
 export type CompilerOptions = OmitIndexSignature<ts.CompilerOptions> &
@@ -62,6 +63,8 @@ export enum LuaTarget {
     Lua53 = "5.3",
     Lua54 = "5.4",
     LuaJIT = "JIT",
+    Cobalt = "CC",
+    Cobalt52 = "CC-5.2"
 }
 
 export enum BuildMode {

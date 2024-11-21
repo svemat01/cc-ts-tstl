@@ -42,8 +42,8 @@ function getLuaBindingsForVersion(target: tstl.LuaTarget): { lauxlib: LauxLib; l
         const { lauxlib, lua, lualib } = require("lua-wasm-bindings/dist/lua.53");
         return { lauxlib, lua, lualib };
     }
-    if (target === tstl.LuaTarget.LuaJIT) {
-        throw Error("Can't use executeLua() or expectToMatchJsResult() wit LuaJIT as target!");
+    if (target === tstl.LuaTarget.LuaJIT || target === tstl.LuaTarget.Cobalt || target === tstl.LuaTarget.Cobalt52) {
+        throw Error("Can't use executeLua() or expectToMatchJsResult() wit LuaJIT or Cobalt as target!");
     }
 
     const { lauxlib, lua, lualib } = require("lua-wasm-bindings/dist/lua.54");
@@ -87,6 +87,8 @@ export function expectEachVersionExceptJit<T>(
         [tstl.LuaTarget.Lua53]: expectation,
         [tstl.LuaTarget.Lua54]: expectation,
         [tstl.LuaTarget.LuaJIT]: false, // Exclude JIT
+        [tstl.LuaTarget.Cobalt]: false, // Exclude CC
+        [tstl.LuaTarget.Cobalt52]: false, // Exclude CC
     };
 }
 
@@ -455,9 +457,9 @@ export abstract class TestBuilder {
         // Lua lib
         if (
             this.options.luaLibImport === tstl.LuaLibImportKind.Require ||
-            mainFile.includes('require("lualib_bundle")')
+            mainFile.includes(`require("${(this.options.luaLibName ?? "lualib_bundle")}")`)
         ) {
-            this.injectLuaFile(L, lua, lauxlib, "lualib_bundle", readLuaLib(luaTarget));
+            this.injectLuaFile(L, lua, lauxlib, (this.options.luaLibName ?? "lualib_bundle"), readLuaLib(luaTarget));
         }
 
         // Load all transpiled files into Lua's package cache
