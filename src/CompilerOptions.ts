@@ -64,7 +64,7 @@ export enum LuaTarget {
     Lua54 = "5.4",
     LuaJIT = "JIT",
     Cobalt = "CC",
-    Cobalt52 = "CC-5.2"
+    Cobalt52 = "CC-5.2",
 }
 
 export enum BuildMode {
